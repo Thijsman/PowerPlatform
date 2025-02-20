@@ -1,0 +1,247 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_sharedoffice365_53b13"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_sharedcommondataserviceforapps_7ea53"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_teams": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_sharedteams_72746"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      },
+      "shared_office365users": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "cr532_teamNavigatorCopilot.connectionreference.Office365Users"
+        },
+        "api": {
+          "name": "shared_office365users"
+        }
+      },
+      "shared_office365_1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_CROffice365Outlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "startTime": "2024-08-28T05:00:00Z"
+          },
+          "metadata": {
+            "operationMetadataId": "2517d674-5504-4e52-983d-4f5dba61c652"
+          },
+          "type": "Recurrence"
+        }
+      },
+      "actions": {
+        "Scope_-_try": {
+          "actions": {
+            "Get_my_profile_(V2)": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "4f934685-1648-4700-87a1-ddbca6a6f661"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_office365users",
+                  "operationId": "MyProfile_V2",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365users"
+                },
+                "parameters": {},
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Get_calendars_(V2)": {
+              "runAfter": {
+                "Get_my_profile_(V2)": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "1aca317c-39af-4336-86c2-aca344549b75"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_office365_1",
+                  "operationId": "CalendarGetTables_V2",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                },
+                "parameters": {},
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Filter_array_-_Agenda": {
+              "runAfter": {
+                "Get_calendars_(V2)": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "c2ee1355-1798-4984-b58f-a35622fd7dd0"
+              },
+              "type": "Query",
+              "inputs": {
+                "from": "@outputs('Get_calendars_(V2)')?['body/value']",
+                "where": "@or(equals(item()?['name'], 'Agenda'),equals(item()?['name'], 'Calendar'))"
+              }
+            },
+            "Get_calendar_view_of_events_(V3)": {
+              "runAfter": {
+                "Filter_array_-_Agenda": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "21b65002-30bc-4d58-819e-5a05a7b390be"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_office365",
+                  "operationId": "GetEventsCalendarViewV3",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                },
+                "parameters": {
+                  "calendarId": "@first(body('Filter_array_-_Agenda'))['id']",
+                  "startDateTimeUtc": "@{formatDateTime(utcNow(), 'yyyy-MM-dd')}T01:00:00",
+                  "endDateTimeUtc": "@{formatDateTime(utcNow(), 'yyyy-MM-dd')}T23:00:00"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Create_text_with_GPT_using_a_prompt": {
+              "runAfter": {
+                "Get_calendar_view_of_events_(V3)": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "0021d0fc-bbda-47e2-8da8-9a05993594bf",
+                "flowSystemMetadata": {
+                  "portalOperationApiDisplayNameOverride": "AI Builder",
+                  "portalOperationIconOverride": "https://content.powerapps.com/resource/makerx/static/pauto/images/designeroperations/aiBuilderNew.51dbdb6b.png",
+                  "portalOperationBrandColorOverride": "#0A76C4",
+                  "portalOperationApiTierOverride": "Standard",
+                  "portalOperationId": "aibuilderpredict_customprompt",
+                  "portalOperationGroup": "aibuilder"
+                }
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "aibuilderpredict_customprompt",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "recordId": "2c403be2-8e5c-4a4d-a5a4-1cf2b298e913",
+                  "item/requestv2/Tekst": "@outputs('Get_calendar_view_of_events_(V3)')?['body/value']"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Post_card_in_a_chat_or_channel": {
+              "runAfter": {
+                "Create_text_with_GPT_using_a_prompt": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "fddd0111-f43a-4458-8241-dbb522897a4d"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_teams",
+                  "operationId": "PostCardToConversation",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+                },
+                "parameters": {
+                  "poster": "Flow bot",
+                  "location": "Chat with Flow bot",
+                  "body/recipient": "@{outputs('Get_my_profile_(V2)')?['body/userPrincipalName']};",
+                  "body/messageBody": "{\n    \"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n    \"type\": \"AdaptiveCard\",\n    \"version\": \"1.0\",\n    \"body\": [\n        {\n            \"type\": \"TextBlock\",\n            \"text\": \"Agenda vandaag @{formatDateTime(utcNow(), 'yyyy-MM-dd')}\",\n            \"weight\": \"Bolder\",\n            \"size\": \"ExtraLarge\",\n            \"spacing\": \"None\",\n            \"id\": \"acHeader\"\n        },\n        {\n            \"type\": \"TextBlock\",\n            \"text\": \"@{outputs('Create_text_with_GPT_using_a_prompt')?['body/responsev2/predictionOutput/text']}\",\n            \"id\": \"acInstructions\",\n            \"wrap\": true\n        }\n    ]\n}"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "1e5000fd-7675-44f5-b659-b82542c4ffc7"
+          },
+          "type": "Scope"
+        },
+        "Scope": {
+          "actions": {
+            "Terminate_-_always_succeed_;)": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "dd121f59-da9b-4d89-a747-1296a61fd2c5"
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "runAfter": {
+            "Scope_-_try": [
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "6d118840-9168-452c-864e-eec643f3611f"
+          },
+          "type": "Scope"
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

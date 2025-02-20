@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="soep_varTakenLijst">
+  <description default="Voer de naam van jouw takenlijst in ">
+    <label description="Voer de naam van jouw takenlijst in " languagecode="1033" />
+  </description>
+  <displayname default="varTakenLijst">
+    <label description="varTakenLijst" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

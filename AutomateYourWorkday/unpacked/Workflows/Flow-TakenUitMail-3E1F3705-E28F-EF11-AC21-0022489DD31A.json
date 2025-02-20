@@ -1,0 +1,348 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_conversionservice": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_sharedconversionservice_54dce"
+        },
+        "api": {
+          "name": "shared_conversionservice"
+        }
+      },
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_sharedcommondataserviceforapps_7ea53"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_todo": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_sharedtodo_305a5"
+        },
+        "api": {
+          "name": "shared_todo"
+        }
+      },
+      "shared_office365users": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "cr532_teamNavigatorCopilot.connectionreference.Office365Users"
+        },
+        "api": {
+          "name": "shared_office365users"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "soep_CROffice365Outlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "varTakenLijst (soep_varTakenLijst)": {
+          "defaultValue": "Taken uit email",
+          "type": "String",
+          "metadata": {
+            "schemaName": "soep_varTakenLijst",
+            "description": "Voer de naam van jouw takenlijst in "
+          }
+        }
+      },
+      "triggers": {
+        "When_a_new_email_arrives_(V3)": {
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "metadata": {
+            "operationMetadataId": "87c5eac1-bddf-44e9-add7-83d443b2b936"
+          },
+          "type": "OpenApiConnectionNotification",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_office365",
+              "operationId": "OnNewEmailV3",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+            },
+            "parameters": {
+              "folderPath": "Inbox",
+              "includeAttachments": false,
+              "importance": "Any",
+              "fetchOnlyWithAttachment": false
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Scope_-_Try": {
+          "actions": {
+            "Html_to_text": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "6a5f0763-2ba3-4fb6-9b76-84f581c4f6e7"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_conversionservice",
+                  "operationId": "HtmlToText",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_conversionservice"
+                },
+                "parameters": {
+                  "Content": "<p>Body:@{triggerOutputs()?['body/body']}</p>"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Condition_-_check_body": {
+              "actions": {
+                "Terminate": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "ee8be001-eae4-4498-a98e-80ab6894db26"
+                  },
+                  "type": "Terminate",
+                  "inputs": {
+                    "runStatus": "Cancelled"
+                  }
+                }
+              },
+              "runAfter": {
+                "Html_to_text": [
+                  "Succeeded"
+                ]
+              },
+              "expression": {
+                "equals": [
+                  "@empty(outputs('Html_to_text')?['body'])",
+                  "@true"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "5b75338a-ea29-45b5-a57e-a0dcf34e42eb"
+              },
+              "type": "If"
+            },
+            "Create_text_with_GPT_using_a_prompt": {
+              "runAfter": {
+                "Condition_-_check_body": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "dbc4a2bb-915d-476d-a54b-2aedba6858fb",
+                "flowSystemMetadata": {
+                  "portalOperationId": "aibuilderpredict_customprompt",
+                  "portalOperationGroup": "aibuilder",
+                  "portalOperationApiDisplayNameOverride": "AI Builder",
+                  "portalOperationIconOverride": "https://content.powerapps.com/resource/makerx/static/pauto/images/designeroperations/aiBuilderNew.51dbdb6b.png",
+                  "portalOperationBrandColorOverride": "#0A76C4",
+                  "portalOperationApiTierOverride": "Standard"
+                }
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "aibuilderpredict_customprompt",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "recordId": "52389dd2-e43a-4670-8259-35b5fd1281d3",
+                  "item/requestv2/Mail": "@{triggerOutputs()?['body/subject']}:@{body('Html_to_text')}",
+                  "item/requestv2/User": "@outputs('Get_my_profile_(V2)')?['body/displayName']"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Create_text_with_GPT_using_a_prompt_-_Draft_mail": {
+              "runAfter": {
+                "Create_text_with_GPT_using_a_prompt": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "flowSystemMetadata": {
+                  "portalOperationId": "aibuilderpredict_customprompt",
+                  "portalOperationGroup": "aibuilder",
+                  "portalOperationApiDisplayNameOverride": "AI Builder",
+                  "portalOperationIconOverride": "https://content.powerapps.com/resource/makerx/static/pauto/images/designeroperations/aiBuilderNew.51dbdb6b.png",
+                  "portalOperationBrandColorOverride": "#0A76C4",
+                  "portalOperationApiTierOverride": "Standard"
+                },
+                "operationMetadataId": "a3d1a746-5218-43a0-8466-1399ec766233"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "aibuilderpredict_customprompt",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "recordId": "b70ceb0c-6be3-4d65-ba95-1e2aa803db48",
+                  "item/requestv2/Mailbody": "@body('Html_to_text')"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "List_all_to-do_lists_(V2)": {
+              "runAfter": {
+                "Create_text_with_GPT_using_a_prompt_-_Draft_mail": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "d8af29ff-21ea-4029-acaa-aeaf214920be"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_todo",
+                  "operationId": "GetAllTodoListsV2",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_todo"
+                },
+                "parameters": {},
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Filter_array_-_To_do_list": {
+              "runAfter": {
+                "List_all_to-do_lists_(V2)": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "be3f31eb-ef6c-4a00-b2bd-dd6cd4099b9d"
+              },
+              "type": "Query",
+              "inputs": {
+                "from": "@body('List_all_to-do_lists_(V2)')",
+                "where": "@contains(item()?['displayName'], parameters('varTakenLijst (soep_varTakenLijst)'))"
+              }
+            },
+            "Condition_-_if_taken": {
+              "actions": {
+                "Apply_to_each": {
+                  "foreach": "@outputs('Create_text_with_GPT_using_a_prompt')?['body/responsev2/predictionOutput/structuredOutput/tasks']",
+                  "actions": {
+                    "Add_a_to-do_(V3)": {
+                      "runAfter": {},
+                      "metadata": {
+                        "operationMetadataId": "70ab91d5-9b7a-41f1-8c8c-77bc8f56b94f"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "host": {
+                          "connectionName": "shared_todo",
+                          "operationId": "CreateToDoV3",
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_todo"
+                        },
+                        "parameters": {
+                          "folderId": "@first(body('Filter_array_-_To_do_list'))['id']",
+                          "body/title": "@{items('Apply_to_each')?['task']} - @{items('Apply_to_each')?['sender']}",
+                          "body/body/content": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\" style=\"font-size: 11px;\">Open mail:</strong></b></p><p class=\"editor-paragraph\">@{concat('https://outlook.office.com/mail/deeplink/read/',encodeUriComponent(triggerOutputs()?['body/Id']))}</p><br><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\" style=\"font-size: 11px;\">Concept reply:</strong></b></p><p class=\"editor-paragraph\">@{outputs('Create_text_with_GPT_using_a_prompt_-_Draft_mail')?['body/responsev2/predictionOutput/text']}</p>"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  },
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "dd8c61d5-f0b3-43c5-888e-c587532ae1b8"
+                  },
+                  "type": "Foreach"
+                }
+              },
+              "runAfter": {
+                "Filter_array_-_To_do_list": [
+                  "Succeeded"
+                ]
+              },
+              "expression": {
+                "greater": [
+                  "@length(outputs('Create_text_with_GPT_using_a_prompt')?['body/responsev2/predictionOutput/structuredOutput/tasks'])",
+                  0
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "b83c9460-f3ca-48ad-b15b-64ca60ead857"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Get_my_profile_(V2)": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "656e9f00-65fd-4080-bfc8-092563128837"
+          },
+          "type": "Scope"
+        },
+        "Scope_-_Catch": {
+          "actions": {
+            "Terminate_-_always_succeed_;)": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "013684da-3993-4dbc-af8e-a256cd1a9c6e"
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "runAfter": {
+            "Scope_-_Try": [
+              "Failed",
+              "TimedOut",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "cd3dd098-6e81-4f6a-8251-2fb1e2f0ed76"
+          },
+          "type": "Scope"
+        },
+        "Get_my_profile_(V2)": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "a7b67b16-ef05-4405-a62f-2741abddb06e"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_office365users",
+              "operationId": "MyProfile_V2",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365users"
+            },
+            "parameters": {},
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}
